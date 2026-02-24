@@ -13,22 +13,35 @@ jobs:
     - name: Checkout Target Repository
       uses: actions/checkout@v4
       with:
-        repository: peditx/openwrt-passwall2
+        # مخزن مقصد برای نسخه ۲
+        repository: peditworker/PeDitXOS_Passwall2
         token: ${{ secrets.GH_TOKEN }}
         fetch-depth: 0
 
+    - name: Fix Safe Directory
+      run: |
+        git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
     - name: Set Git user
       run: |
-        git config --global user.name "peditx"
+        git config --global user.name "peditworker"
         git config --global user.email "pedram.ale@me.com"
 
     - name: Sync with Upstream
       run: |
+        echo "Adding upstream remote..."
         git remote add upstream https://github.com/Openwrt-Passwall/openwrt-passwall2.git || echo "Upstream already added."
+        
+        echo "Fetching from upstream..."
         git fetch upstream --tags
-        git checkout main || git checkout -b main
-        git reset --hard upstream/main
 
+        # چک کردن شاخه اصلی (main یا master)
+        git checkout main || git checkout master || git checkout -b main
+
+        echo "Resetting to upstream..."
+        git reset --hard upstream/main || git reset --hard upstream/master
+
+        echo "Updating tags..."
         LATEST_COMMIT=$(git rev-parse HEAD)
         for TAG in $(git tag); do
           git tag -d "$TAG" || true
@@ -37,9 +50,11 @@ jobs:
 
     - name: Inject Status File
       run: |
+        # مسیر فایل‌ها در نسخه ۲ متفاوت است
         TARGET_DIR="luci-app-passwall2/luasrc/view/passwall2/global"
         mkdir -p "$TARGET_DIR"
         
+        echo "Downloading status.htm for Passwall 2..."
         curl -fSL -o "$TARGET_DIR/status.htm" \
           https://raw.githubusercontent.com/peditx/peditx-official-site/refs/heads/main/public/projects/passwall/Passwall2/status.htm
         
@@ -47,11 +62,14 @@ jobs:
 
     - name: Commit and Push to Remote Repo
       run: |
-        git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/peditx/openwrt-passwall2.git
+        # تنظیم آدرس Push به مخزن Passwall 2
+        git remote set-url origin "https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/peditworker/PeDitXOS_Passwall2.git"
+        
         git add .
         if git diff-index --quiet HEAD; then
           echo "No changes to commit."
         else
-          git commit -m "Remote Sync: Update status.htm and sync with upstream"
-          git push origin main --force
+          git commit -m "Remote Sync: Update status.htm and sync with upstream (Passwall 2)"
+          # تلاش برای Push به شاخه صحیح
+          git push origin main --force || git push origin master --force
         fi
