@@ -1,0 +1,67 @@
+name: Sync with Upstream
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  schedule:
+      - cron: '0 0 * * 0,1,5'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout peditx/openwrt-passwall2 repository
+      uses: actions/checkout@v2
+      with:
+        token: ${{ secrets.GH_TOKEN }}
+
+    - name: Set Git user
+      run: |
+        git config --global user.name "peditx"
+        git config --global user.email "pedram.ale@me.com"
+
+    - name: Sync with Upstream (xiaorouji/openwrt-passwall2)
+      run: |
+        echo "Adding upstream remote repository..."
+        git remote add upstream https://github.com/xiaorouji/openwrt-passwall2.git || echo "Upstream already added."
+        
+        echo "Fetching all changes including tags from upstream..."
+        git fetch upstream --tags
+
+        echo "Resetting local branch to match upstream/main (force reset)..."
+        git checkout main
+        git reset --hard upstream/main || echo "Failed to reset branch."
+
+        echo "Ensuring branch is up-to-date (force rebase)..."
+        git pull upstream main --rebase --allow-unrelated-histories || echo "Rebase failed."
+
+        echo "Reattaching tags to the latest commit on main..."
+        LATEST_COMMIT=$(git rev-parse HEAD)
+        for TAG in $(git tag); do
+          echo "Reattaching tag: $TAG"
+          git tag -d $TAG || echo "Tag $TAG not found locally."
+          git tag -a $TAG -m "Reattached tag to main" $LATEST_COMMIT
+        done
+
+    - name: Force Replace File
+      run: |
+        echo "Removing old status.htm file..."
+        rm -f luci-app-passwall2/luasrc/view/passwall2/global/status.htm || echo "File does not exist."
+        
+        echo "Downloading new status.htm file..."
+        curl -fSL -o luci-app-passwall2/luasrc/view/passwall2/global/status.htm \
+          https://raw.githubusercontent.com/peditx/peditx-official-site/refs/heads/main/public/projects/passwall/Passwall2/status.htm
+        
+        echo "Downloaded file content:"
+        cat luci-app-passwall2/luasrc/view/passwall2/global/status.htm
+
+    - name: Commit and Push changes to peditx/openwrt-passwall2
+      run: |
+        echo "Committing and pushing changes to peditx/openwrt-passwall2..."
+        git remote set-url origin https://peditx:${{ secrets.GH_TOKEN }}@github.com/peditx/openwrt-passwall2.git
+        git add luci-app-passwall2/luasrc/view/passwall2/global/status.htm
+        git commit -m "Update status.htm"
+        git push origin main --force || echo "Push failed."
