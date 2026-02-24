@@ -1,9 +1,9 @@
-name: Remote Sync (Passwall 1)
+name: Remote Sync (Passwall 2)
 
 on:
   workflow_dispatch:
   schedule:
-      - cron: '0 0 * * 0,1,5'
+      - cron: '0 5 * * 0,1,5'
 
 jobs:
   sync:
@@ -13,27 +13,33 @@ jobs:
     - name: Checkout Target Repository
       uses: actions/checkout@v4
       with:
-        # آدرس مخزنی که میخواهید آپدیت شود
-        repository: peditx/openwrt-passwall
+        # آدرس مخزن مقصد جدید در اکانت peditworker
+        repository: peditworker/PeDitXOS_Passwall2
         token: ${{ secrets.GH_TOKEN }}
         fetch-depth: 0
 
+    - name: Fix Safe Directory
+      run: |
+        git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
     - name: Set Git user
       run: |
-        git config --global user.name "peditx"
+        git config --global user.name "peditworker"
         git config --global user.email "pedram.ale@me.com"
 
     - name: Sync with Upstream
       run: |
         echo "Adding upstream remote..."
-        git remote add upstream https://github.com/Openwrt-Passwall/openwrt-passwall.git || echo "Upstream already added."
+        git remote add upstream https://github.com/Openwrt-Passwall/openwrt-passwall2.git || echo "Upstream already added."
         
         echo "Fetching from upstream..."
         git fetch upstream --tags
-
-        echo "Resetting to upstream main..."
-        git checkout main || git checkout -b main
-        git reset --hard upstream/main
+        
+        # چک کردن شاخه اصلی
+        git checkout main || git checkout master || git checkout -b main
+        
+        echo "Resetting to upstream..."
+        git reset --hard upstream/main || git reset --hard upstream/master
 
         echo "Updating tags..."
         LATEST_COMMIT=$(git rev-parse HEAD)
@@ -44,22 +50,25 @@ jobs:
 
     - name: Inject Status File
       run: |
-        TARGET_DIR="luci-app-passwall/luasrc/view/passwall/global"
+        TARGET_DIR="luci-app-passwall2/luasrc/view/passwall2/global"
         mkdir -p "$TARGET_DIR"
         
+        echo "Downloading status.htm for Passwall 2..."
         curl -fSL -o "$TARGET_DIR/status.htm" \
-          https://raw.githubusercontent.com/peditx/peditx-official-site/refs/heads/main/public/projects/passwall/Passwall1/status.htm
+          https://raw.githubusercontent.com/peditx/peditx-official-site/refs/heads/main/public/projects/passwall/Passwall2/status.htm
         
         ls -l "$TARGET_DIR/status.htm"
 
     - name: Commit and Push to Remote Repo
       run: |
-        # تنظیم آدرس Push به مخزن مقصد در اکانت peditx
-        git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/peditx/openwrt-passwall.git
+        # تنظیم آدرس Push به مخزن مقصد در اکانت peditworker
+        git remote set-url origin "https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/peditworker/PeDitXOS_Passwall2.git"
+        
         git add .
         if git diff-index --quiet HEAD; then
           echo "No changes to commit."
         else
-          git commit -m "Remote Sync: Update status.htm and sync with upstream"
-          git push origin main --force
+          git commit -m "Remote Sync: Update status.htm and sync with upstream (Passwall 2)"
+          # تلاش برای Push به شاخه صحیح
+          git push origin main --force || git push origin master --force
         fi
