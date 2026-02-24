@@ -32,8 +32,9 @@ jobs:
         echo "Adding upstream remote..."
         git remote add upstream https://github.com/Openwrt-Passwall/openwrt-passwall2.git || echo "Upstream already added."
         
-        echo "Fetching from upstream..."
-        git fetch upstream --tags
+        echo "Fetching from upstream with force for tags..."
+        # استفاده از --force برای حل مشکل clobbering تگ‌ها
+        git fetch upstream --tags --force
 
         # چک کردن شاخه اصلی (main یا master)
         git checkout main || git checkout master || git checkout -b main
@@ -41,8 +42,9 @@ jobs:
         echo "Resetting to upstream..."
         git reset --hard upstream/main || git reset --hard upstream/master
 
-        echo "Updating tags..."
+        echo "Updating tags to match current head..."
         LATEST_COMMIT=$(git rev-parse HEAD)
+        # دریافت لیست تمام تگ‌ها و بازنشانی آن‌ها روی کامیت آخر
         for TAG in $(git tag); do
           git tag -d "$TAG" || true
           git tag -a "$TAG" -m "Reattached tag" "$LATEST_COMMIT"
@@ -50,7 +52,6 @@ jobs:
 
     - name: Inject Status File
       run: |
-        # مسیر فایل‌ها در نسخه ۲ متفاوت است
         TARGET_DIR="luci-app-passwall2/luasrc/view/passwall2/global"
         mkdir -p "$TARGET_DIR"
         
@@ -62,7 +63,6 @@ jobs:
 
     - name: Commit and Push to Remote Repo
       run: |
-        # تنظیم آدرس Push به مخزن Passwall 2
         git remote set-url origin "https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/peditworker/PeDitXOS_Passwall2.git"
         
         git add .
@@ -70,6 +70,7 @@ jobs:
           echo "No changes to commit."
         else
           git commit -m "Remote Sync: Update status.htm and sync with upstream (Passwall 2)"
-          # تلاش برای Push به شاخه صحیح
           git push origin main --force || git push origin master --force
+          # ارسال تگ‌ها به صورت اجباری
+          git push origin --tags --force
         fi
