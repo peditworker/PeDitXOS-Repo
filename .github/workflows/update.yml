@@ -24,10 +24,10 @@ jobs:
         git config --global user.name "peditx"
         git config --global user.email "pedram.ale@me.com"
 
-    - name: Sync with Upstream (xiaorouji/openwrt-passwall2)
+    - name: Sync with Upstream (Openwrt-Passwall/openwrt-passwall2)
       run: |
         echo "Adding upstream remote repository..."
-        git remote add upstream https://github.com/xiaorouji/openwrt-passwall2.git || echo "Upstream already added."
+        git remote add upstream https://github.com/Openwrt-Passwall/openwrt-passwall2.git || echo "Upstream already added."
         
         echo "Fetching all changes including tags from upstream..."
         git fetch upstream --tags
